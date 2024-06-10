@@ -70,6 +70,7 @@ public:
       : tid(id), quantumsAlive(1),
         state(State::READY) {
     char* stack = new char[STACK_SIZE];
+    sigsetjmp(env, 1);
     (env->__jmpbuf)[JB_SP] = translate_address ((address_t) stack + STACK_SIZE - sizeof(address_t));
     (env->__jmpbuf)[JB_PC] = translate_address ((address_t )entry_point);
   }
@@ -88,6 +89,17 @@ std::set<int> sleepingSet;
 int runningThread;
 int totalQuantums;
 std::vector<Thread *> threads(MAX_THREAD_NUM, nullptr);
+
+
+void scheduled_controller(){
+  sigsetjmp(threads[runningThread]->env,1);
+  threads[runningThread]->quantumsAlive ++;
+  for (const int &thread : sleepingSet){
+    threads[thread]->sleepQuantums --;
+    if (threads[thread]->sleepQuantums <= 0){
+    }
+  }
+}
 
 /**
  * @brief initializes the thread library.
