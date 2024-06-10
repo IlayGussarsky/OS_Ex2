@@ -59,11 +59,13 @@ class Thread {
 public:
   int tid;
   int quantumsAlive;
-//  thread_entry_point entry_point;
   sigjmp_buf env;
 
+  int sleepQuantums;
+  thread_entry_point entry_point;
   State state;
   // Constructor to initialize tid
+  // TODO: recreate constructor with new fields.
   Thread(int id, thread_entry_point entry_point)
       : tid(id), quantumsAlive(1),
         state(State::READY) {
@@ -75,13 +77,16 @@ public:
 
 // Use typedef to create an alias for the class
 void freeMemory();
+void setRunningThread();
 typedef class Thread Thread;
 
 // Global variables:
 int quantom_usecs;
 std::queue<int> readyQueue;
 std::set<int> blockedSet;
+std::set<int> sleepingSet;
 int runningThread;
+int totalQuantums;
 std::vector<Thread *> threads(MAX_THREAD_NUM, nullptr);
 
 /**
@@ -99,11 +104,16 @@ std::vector<Thread *> threads(MAX_THREAD_NUM, nullptr);
  */
 int uthread_init(int quantum_usecs) {
   if (quantum_usecs < 0) {
-    std::cout << "thread library error: quantom time is negative.\n";
+    std::cerr << "thread library error: quantom time is negative.\n";
     return -1;
   }
   // Todo how do I fix this leak?
   Thread *mainThread = new Thread(0, nullptr);
+  if (!mainThread) {
+    // System call failed.
+
+    // TODO: exit properly.
+  }
   threads[0] = mainThread;
   runningThread = 0;
   return 0;
@@ -127,7 +137,8 @@ int uthread_spawn(thread_entry_point entry_point) {
   for (; threads[curID]; curID++) {
   }
   if (curID == MAX_THREAD_NUM) {
-    // Error
+    std::cerr << "thread library error: max amount of threads reached.\n";
+    // TODO: do we exit?
     return -1;
   }
   Thread *newThread = new Thread(curID, entry_point);
@@ -150,7 +161,7 @@ int uthread_spawn(thread_entry_point entry_point) {
  */
 int uthread_terminate(int tid) {
   if (!threads[tid]) {
-    // Error
+    std::cerr << "thread library error: no thread with ID tid exists.\n";
     return -1;
   }
 
@@ -194,10 +205,7 @@ int uthread_terminate(int tid) {
     if (readyQueue.empty()) {
       // TODO: handle this, I don't believe we should reach here.
     }
-    int nextRunningThread = readyQueue.front();
-    readyQueue.pop();
-    threads[nextRunningThread]->state = State::RUNNING;
-    runningThread = nextRunningThread;
+    setRunningThread();
 
     // TODO: Reset timer.
   }
@@ -220,7 +228,8 @@ int uthread_terminate(int tid) {
  */
 int uthread_block(int tid) {
   if (tid == 0) {
-    // Error
+    std::cerr
+        << "thread library error: it is an error to block the main thread.\n";
   }
 }
 
@@ -250,14 +259,26 @@ int uthread_resume(int tid) {}
  *
  * @return On success, return 0. On failure, return -1.
  */
-int uthread_sleep(int num_quantums);
+int uthread_sleep(int num_quantums) {
+  int tid = uthread_get_tid();
+  if (tid == 0) {
+    std::cerr << "thread library error: cannot put main thread to sleep.\n";
+    return -1;
+  }
+
+  threads[tid]->sleepQuantums = num_quantums;
+  threads[tid]->state = State::BLOCKED;
+  sleepingSet.insert(tid);
+  setRunningThread();
+  return 0;
+}
 
 /**
  * @brief Returns the thread ID of the calling thread.
  *
  * @return The ID of the calling thread.
  */
-int uthread_get_tid();
+int uthread_get_tid() { return runningThread; }
 
 /**
  * @brief Returns the total number of quantums since the library was
@@ -269,7 +290,7 @@ int uthread_get_tid();
  *
  * @return The total number of quantums.
  */
-int uthread_get_total_quantums();
+int uthread_get_total_quantums() { return totalQuantums; }
 
 /**
  * @brief Returns the number of quantums the thread with ID tid was in RUNNING
@@ -284,5 +305,24 @@ int uthread_get_total_quantums();
  * @return On success, return the number of quantums of the thread with ID tid.
  * On failure, return -1.
  */
-int uthread_get_quantums(int tid);
+int uthread_get_quantums(int tid) {
+  // TODO: make sure this quantumsAlive is properly maintinaed @nahtomi(?)
+  if (!threads[tid]) {
+    // Thread does not exist, error:
+    std::cerr << "thread library error: thread does not exist.\n";
+    return -1;
+  }
+
+  return threads[tid]->quantumsAlive;
+}
 void freeMemory() {}
+
+/**
+ * This function sets the next thread in readyQueue to running.
+ */
+void setRunningThread() {
+  const int nextRunningThread = readyQueue.front();
+  readyQueue.pop();
+  threads[nextRunningThread]->state = State::RUNNING;
+  runningThread = nextRunningThread;
+}
