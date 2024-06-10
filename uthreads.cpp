@@ -44,11 +44,16 @@ std::vector<Thread *> threads(MAX_THREAD_NUM, nullptr);
  */
 int uthread_init(int quantum_usecs) {
   if (quantum_usecs < 0) {
-    std::cout << "thread library error: quantom time is negative.\n";
+    std::cerr << "thread library error: quantom time is negative.\n";
     return -1;
   }
   // Todo how do I fix this leak?
   Thread *mainThread = new Thread(0, nullptr);
+  if (!mainThread) {
+    // System call failed.
+
+    // TODO: exit properly.
+  }
   threads[0] = mainThread;
   runningThread = 0;
   return 0;
@@ -72,7 +77,8 @@ int uthread_spawn(thread_entry_point entry_point) {
   for (; threads[curID]; curID++) {
   }
   if (curID == MAX_THREAD_NUM) {
-    // Error
+    std::cerr << "thread library error: max amount of threads reached.\n";
+    // TODO: do we exit?
     return -1;
   }
   Thread *newThread = new Thread(curID, entry_point);
@@ -95,7 +101,7 @@ int uthread_spawn(thread_entry_point entry_point) {
  */
 int uthread_terminate(int tid) {
   if (!threads[tid]) {
-    // Error
+    std::cerr << "thread library error: no thread with ID tid exists.\n";
     return -1;
   }
 
@@ -165,7 +171,7 @@ int uthread_terminate(int tid) {
  */
 int uthread_block(int tid) {
   if (tid == 0) {
-    // Error
+    std::cerr << "thread library error: it is an error to block the main thread.\n";
   }
 }
 
