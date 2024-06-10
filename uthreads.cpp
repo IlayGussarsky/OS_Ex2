@@ -27,6 +27,7 @@ int quantom_usecs;
 std::queue<int> readyQueue;
 std::set<int> blockedSet;
 int runningThread;
+int totalQuantums;
 std::vector<Thread *> threads(MAX_THREAD_NUM, nullptr);
 
 /**
@@ -209,7 +210,9 @@ int uthread_sleep(int num_quantums);
  *
  * @return The ID of the calling thread.
  */
-int uthread_get_tid();
+int uthread_get_tid() {
+  return runningThread;
+}
 
 /**
  * @brief Returns the total number of quantums since the library was
@@ -221,7 +224,9 @@ int uthread_get_tid();
  *
  * @return The total number of quantums.
  */
-int uthread_get_total_quantums();
+int uthread_get_total_quantums() {
+  return totalQuantums;
+}
 
 /**
  * @brief Returns the number of quantums the thread with ID tid was in RUNNING
