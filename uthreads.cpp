@@ -23,7 +23,7 @@ public:
 // Use typedef to create an alias for the class
 void freeMemory();
 void setRunningThread();
-typedef class Thread Thread;
+void removeFromReadyQueue(int);
 
 // Global variables:
 int quantom_usecs;
@@ -116,23 +116,7 @@ int uthread_terminate(int tid) {
   }
 
   if (threads[tid]->state == State::READY) {
-    // TODO: Remove from ready queue.
-    std::queue<int> tmpQueue;
-    // Copy queue to tmpQueue, not copying the unwanted tid.
-    while (!readyQueue.empty()) {
-      int cur = readyQueue.front();
-      readyQueue.pop();
-      if (cur == tid) {
-        continue;
-      }
-      tmpQueue.push(cur);
-    }
-    // Copy back to readyQueue.
-    while (!tmpQueue.empty()) {
-      int cur = tmpQueue.front();
-      tmpQueue.pop();
-      readyQueue.push(cur);
-    }
+    removeFromReadyQueue(tid);
   }
 
   if (threads[tid]->state == State::BLOCKED) {
@@ -173,9 +157,26 @@ int uthread_terminate(int tid) {
  */
 int uthread_block(int tid) {
   if (tid == 0) {
-    std::cerr
-        << "thread library error: it is an error to block the main thread.\n";
+    std::cerr << "thread library error: [uthread_block] it is an error to "
+                 "block the main thread.\n";
+    return -1;
   }
+  if (!threads[tid]) {
+    std::cerr
+        << "thread library error: [uthread_block] thread does not exist.\n";
+    return -1;
+  }
+  // TODO: what happens if we are blocking a sleeping thread?
+  if (uthread_get_tid() == tid) {
+    threads[tid]->state = State::BLOCKED;
+    setRunningThread();
+    return 0;
+  }
+  // Now we may assume that we are removing a thread that is ready.
+  removeFromReadyQueue(tid);
+  blockedSet.insert(tid);
+  threads[tid]->state = State::BLOCKED;
+  return 0;
 }
 
 /**
@@ -280,7 +281,19 @@ int uthread_get_quantums(int tid) {
 
   return threads[tid]->quantumsAlive;
 }
-void freeMemory() {}
+
+/**
+ * This function frees all memory allocated by the program.
+ * Should be called before exit.
+ */
+void freeMemory() {
+  for (int i = 0; i < MAX_THREAD_NUM; i++) {
+    if (!threads[i]) {
+      continue;
+    }
+    delete threads[i];
+  }
+}
 
 /**
  * This function sets the next thread in readyQueue to running.
@@ -290,4 +303,23 @@ void setRunningThread() {
   readyQueue.pop();
   threads[nextRunningThread]->state = State::RUNNING;
   runningThread = nextRunningThread;
+}
+
+void removeFromReadyQueue(int tid) {
+  std::queue<int> tmpQueue;
+  // Copy queue to tmpQueue, not copying the unwanted tid.
+  while (!readyQueue.empty()) {
+    int cur = readyQueue.front();
+    readyQueue.pop();
+    if (cur == tid) {
+      continue;
+    }
+    tmpQueue.push(cur);
+  }
+  // Copy back to readyQueue.
+  while (!tmpQueue.empty()) {
+    int cur = tmpQueue.front();
+    tmpQueue.pop();
+    readyQueue.push(cur);
+  }
 }
