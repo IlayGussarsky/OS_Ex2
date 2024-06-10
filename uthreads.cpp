@@ -236,5 +236,14 @@ int uthread_get_total_quantums();
  * @return On success, return the number of quantums of the thread with ID tid.
  * On failure, return -1.
  */
-int uthread_get_quantums(int tid);
+int uthread_get_quantums(int tid) {
+  // TODO: make sure this quantumsAlive is properly maintinaed @nahtomi(?)
+  if (!threads[tid]) {
+    // Thread does not exist, error:
+    std::cerr << "thread library error: thread does not exist.\n";
+    return -1;
+  }
+
+  return threads[tid]->quantumsAlive;
+}
 void freeMemory() {}
