@@ -81,6 +81,7 @@ typedef class Thread Thread;
 int quantom_usecs;
 std::queue<int> readyQueue;
 std::set<int> blockedSet;
+int runningThread;
 std::vector<Thread *> threads(MAX_THREAD_NUM, nullptr);
 
 /**
@@ -104,6 +105,7 @@ int uthread_init(int quantum_usecs) {
   // Todo how do I fix this leak?
   Thread *mainThread = new Thread(0, nullptr);
   threads[0] = mainThread;
+  runningThread = 0;
   return 0;
 }
 
@@ -158,16 +160,46 @@ int uthread_terminate(int tid) {
   }
 
   if (threads[tid]->state == State::READY) {
-    // Remove from ready queue.
+    // TODO: Remove from ready queue.
+    std::queue<int> tmpQueue;
+    // Copy queue to tmpQueue, not copying the unwanted tid.
+    while (!readyQueue.empty()) {
+      int cur = readyQueue.front();
+      readyQueue.pop();
+      if (cur == tid) {
+        continue;
+      }
+      tmpQueue.push(cur);
+    }
+    // Copy back to readyQueue.
+    while (!tmpQueue.empty()) {
+      int cur = tmpQueue.front();
+      tmpQueue.pop();
+      readyQueue.push(cur);
+    }
   }
+
   if (threads[tid]->state == State::BLOCKED) {
     // Remove from blocked set.
     // Make sure it is indeed in blocked set:
+    if (blockedSet.find(tid) == blockedSet.end()) {
+      // TODO: handle this.
+    }
+    blockedSet.erase(tid);
   }
   if (threads[tid]->state == State::RUNNING) {
     // Handle the fact that it is currently running:
+    // I think there has to be something in readyQueue - either 0 is there or it
+    // is terminated (and then we would not reach this code).
+    if (readyQueue.empty()) {
+      // TODO: handle this, I don't believe we should reach here.
+    }
+    int nextRunningThread = readyQueue.front();
+    readyQueue.pop();
+    threads[nextRunningThread]->state = State::RUNNING;
+    runningThread = nextRunningThread;
 
-    // Reset timer.
+    // TODO: Reset timer.
   }
   delete threads[tid];
   threads[tid] = nullptr;
