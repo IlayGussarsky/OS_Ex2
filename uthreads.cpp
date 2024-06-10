@@ -78,10 +78,10 @@ public:
 // Use typedef to create an alias for the class
 void freeMemory();
 void setRunningThread();
-typedef class Thread Thread;
+void removeFromReadyQueue(int);
 
 // Global variables:
-int quantom_usecs;
+int quantomUsecs;
 std::queue<int> readyQueue;
 std::set<int> blockedSet;
 std::set<int> sleepingSet;
@@ -108,14 +108,16 @@ int uthread_init(int quantum_usecs) {
     return -1;
   }
   // Todo how do I fix this leak?
-  Thread *mainThread = new Thread(0, nullptr);
+  Thread *mainThread = new (std::nothrow) Thread(0, nullptr);
   if (!mainThread) {
     // System call failed.
-
+    std::cerr << "system error: [uthread_init] memory allocation failed.\n";
+    return -1;
     // TODO: exit properly.
   }
   threads[0] = mainThread;
   runningThread = 0;
+  quantomUsecs = quantum_usecs;
   return 0;
 }
 
@@ -171,23 +173,7 @@ int uthread_terminate(int tid) {
   }
 
   if (threads[tid]->state == State::READY) {
-    // TODO: Remove from ready queue.
-    std::queue<int> tmpQueue;
-    // Copy queue to tmpQueue, not copying the unwanted tid.
-    while (!readyQueue.empty()) {
-      int cur = readyQueue.front();
-      readyQueue.pop();
-      if (cur == tid) {
-        continue;
-      }
-      tmpQueue.push(cur);
-    }
-    // Copy back to readyQueue.
-    while (!tmpQueue.empty()) {
-      int cur = tmpQueue.front();
-      tmpQueue.pop();
-      readyQueue.push(cur);
-    }
+    removeFromReadyQueue(tid);
   }
 
   if (threads[tid]->state == State::BLOCKED) {
@@ -228,9 +214,26 @@ int uthread_terminate(int tid) {
  */
 int uthread_block(int tid) {
   if (tid == 0) {
-    std::cerr
-        << "thread library error: it is an error to block the main thread.\n";
+    std::cerr << "thread library error: [uthread_block] it is an error to "
+                 "block the main thread.\n";
+    return -1;
   }
+  if (!threads[tid]) {
+    std::cerr
+        << "thread library error: [uthread_block] thread does not exist.\n";
+    return -1;
+  }
+  // TODO: what happens if we are blocking a sleeping thread?
+  if (uthread_get_tid() == tid) {
+    threads[tid]->state = State::BLOCKED;
+    setRunningThread();
+    return 0;
+  }
+  // Now we may assume that we are removing a thread that is ready.
+  removeFromReadyQueue(tid);
+  blockedSet.insert(tid);
+  threads[tid]->state = State::BLOCKED;
+  return 0;
 }
 
 /**
@@ -242,7 +245,27 @@ int uthread_block(int tid) {
  *
  * @return On success, return 0. On failure, return -1.
  */
-int uthread_resume(int tid) {}
+int uthread_resume(int tid) {
+  if (!threads[tid]) {
+    std::cerr
+        << "thread library error: [uthread_resume] thread does not exist.\n";
+    return -1;
+  }
+
+  State curState = threads[tid]->state;
+  if (curState == State::RUNNING || curState == State::READY) {
+    // No need to do anything.
+    return 0;
+  }
+
+  // Set state to ready and move to ready queue.
+  // TODO what if it is sleeping? can we resume a sleeping set?
+  // (Currently we will not resume a sleeping set).
+  threads[tid]->state = State::READY;
+  blockedSet.erase(tid);
+  readyQueue.push(tid);
+  return 0;
+}
 
 /**
  * @brief Blocks the RUNNING thread for num_quantums quantums.
@@ -315,7 +338,19 @@ int uthread_get_quantums(int tid) {
 
   return threads[tid]->quantumsAlive;
 }
-void freeMemory() {}
+
+/**
+ * This function frees all memory allocated by the program.
+ * Should be called before exit.
+ */
+void freeMemory() {
+  for (int i = 0; i < MAX_THREAD_NUM; i++) {
+    if (!threads[i]) {
+      continue;
+    }
+    delete threads[i];
+  }
+}
 
 /**
  * This function sets the next thread in readyQueue to running.
@@ -325,4 +360,23 @@ void setRunningThread() {
   readyQueue.pop();
   threads[nextRunningThread]->state = State::RUNNING;
   runningThread = nextRunningThread;
+}
+
+void removeFromReadyQueue(int tid) {
+  std::queue<int> tmpQueue;
+  // Copy queue to tmpQueue, not copying the unwanted tid.
+  while (!readyQueue.empty()) {
+    int cur = readyQueue.front();
+    readyQueue.pop();
+    if (cur == tid) {
+      continue;
+    }
+    tmpQueue.push(cur);
+  }
+  // Copy back to readyQueue.
+  while (!tmpQueue.empty()) {
+    int cur = tmpQueue.front();
+    tmpQueue.pop();
+    readyQueue.push(cur);
+  }
 }
