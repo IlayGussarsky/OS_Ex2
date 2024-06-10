@@ -1,9 +1,9 @@
 #include "uthreads.h"
+
+#include <csignal>
 #include <iostream>
 #include <queue>
 #include <set>
-#include <thread>
-#include <csignal>
 #include <setjmp.h>
 
 #ifdef __x86_64__
@@ -15,13 +15,12 @@ typedef unsigned long address_t;
 
 /* A translation is required when using an address of a variable.
    Use this as a black box in your code. */
-address_t translate_address(address_t addr)
-{
+address_t translate_address(address_t addr) {
   address_t ret;
   asm volatile("xor    %%fs:0x30,%0\n"
                "rol    $0x11,%0\n"
-      : "=g" (ret)
-      : "0" (addr));
+               : "=g"(ret)
+               : "0"(addr));
   return ret;
 }
 
@@ -32,26 +31,22 @@ typedef unsigned int address_t;
 #define JB_SP 4
 #define JB_PC 5
 
-
 /* A translation is required when using an address of a variable.
    Use this as a black box in your code. */
-address_t translate_address(address_t addr)
-{
-    address_t ret;
-    asm volatile("xor    %%gs:0x18,%0\n"
-                 "rol    $0x9,%0\n"
-    : "=g" (ret)
-    : "0" (addr));
-    return ret;
+address_t translate_address(address_t addr) {
+  address_t ret;
+  asm volatile("xor    %%gs:0x18,%0\n"
+               "rol    $0x9,%0\n"
+               : "=g"(ret)
+               : "0"(addr));
+  return ret;
 }
-
 
 #endif
 #define SECOND 1000000
 #define STACK_SIZE 4096
 
 typedef void (*thread_entry_point)(void);
-
 
 enum class State { READY, BLOCKED, RUNNING };
 
@@ -67,12 +62,12 @@ public:
   // Constructor to initialize tid
   // TODO: recreate constructor with new fields.
   Thread(int id, thread_entry_point entry_point)
-      : tid(id), quantumsAlive(1),
-        state(State::READY) {
-    char* stack = new char[STACK_SIZE];
+      : tid(id), quantumsAlive(1), state(State::READY) {
+    char *stack = new char[STACK_SIZE];
     sigsetjmp(env, 1);
-    (env->__jmpbuf)[JB_SP] = translate_address ((address_t) stack + STACK_SIZE - sizeof(address_t));
-    (env->__jmpbuf)[JB_PC] = translate_address ((address_t )entry_point);
+    (env->__jmpbuf)[JB_SP] =
+        translate_address((address_t)stack + STACK_SIZE - sizeof(address_t));
+    (env->__jmpbuf)[JB_PC] = translate_address((address_t)entry_point);
   }
 };
 
@@ -90,13 +85,12 @@ int runningThread;
 int totalQuantums;
 std::vector<Thread *> threads(MAX_THREAD_NUM, nullptr);
 
-
-void scheduled_controller(){
-  sigsetjmp(threads[runningThread]->env,1);
-  threads[runningThread]->quantumsAlive ++;
-  for (const int &thread : sleepingSet){
-    threads[thread]->sleepQuantums --;
-    if (threads[thread]->sleepQuantums <= 0){
+void scheduled_controller() {
+  sigsetjmp(threads[runningThread]->env, 1);
+  threads[runningThread]->quantumsAlive++;
+  for (const int &thread : sleepingSet) {
+    threads[thread]->sleepQuantums--;
+    if (threads[thread]->sleepQuantums <= 0) {
     }
   }
 }
