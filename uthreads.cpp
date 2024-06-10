@@ -10,9 +10,11 @@ class Thread {
 public:
   int tid;
   int quantumsAlive;
+  int sleepQuantums;
   thread_entry_point entry_point;
   State state;
   // Constructor to initialize tid
+  // TODO: recreate constructor with new fields.
   Thread(int id, thread_entry_point entry_point)
       : tid(id), entry_point(entry_point), quantumsAlive(1),
         state(State::READY) {}
@@ -20,12 +22,14 @@ public:
 
 // Use typedef to create an alias for the class
 void freeMemory();
+void setRunningThread();
 typedef class Thread Thread;
 
 // Global variables:
 int quantom_usecs;
 std::queue<int> readyQueue;
 std::set<int> blockedSet;
+std::set<int> sleepingSet;
 int runningThread;
 int totalQuantums;
 std::vector<Thread *> threads(MAX_THREAD_NUM, nullptr);
@@ -146,10 +150,7 @@ int uthread_terminate(int tid) {
     if (readyQueue.empty()) {
       // TODO: handle this, I don't believe we should reach here.
     }
-    int nextRunningThread = readyQueue.front();
-    readyQueue.pop();
-    threads[nextRunningThread]->state = State::RUNNING;
-    runningThread = nextRunningThread;
+    setRunningThread();
 
     // TODO: Reset timer.
   }
@@ -203,16 +204,26 @@ int uthread_resume(int tid) {}
  *
  * @return On success, return 0. On failure, return -1.
  */
-int uthread_sleep(int num_quantums);
+int uthread_sleep(int num_quantums) {
+  int tid = uthread_get_tid();
+  if (tid == 0) {
+    std::cerr << "thread library error: cannot put main thread to sleep.\n";
+    return -1;
+  }
+
+  threads[tid]->sleepQuantums = num_quantums;
+  threads[tid]->state = State::BLOCKED;
+  sleepingSet.insert(tid);
+  setRunningThread();
+  return 0;
+}
 
 /**
  * @brief Returns the thread ID of the calling thread.
  *
  * @return The ID of the calling thread.
  */
-int uthread_get_tid() {
-  return runningThread;
-}
+int uthread_get_tid() { return runningThread; }
 
 /**
  * @brief Returns the total number of quantums since the library was
@@ -224,9 +235,7 @@ int uthread_get_tid() {
  *
  * @return The total number of quantums.
  */
-int uthread_get_total_quantums() {
-  return totalQuantums;
-}
+int uthread_get_total_quantums() { return totalQuantums; }
 
 /**
  * @brief Returns the number of quantums the thread with ID tid was in RUNNING
@@ -252,3 +261,13 @@ int uthread_get_quantums(int tid) {
   return threads[tid]->quantumsAlive;
 }
 void freeMemory() {}
+
+/**
+ * This function sets the next thread in readyQueue to running.
+ */
+void setRunningThread() {
+  const int nextRunningThread = readyQueue.front();
+  readyQueue.pop();
+  threads[nextRunningThread]->state = State::RUNNING;
+  runningThread = nextRunningThread;
+}
