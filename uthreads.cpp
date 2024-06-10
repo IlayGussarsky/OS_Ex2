@@ -97,7 +97,10 @@ void scheduled_controller(){
   for (const int &thread : sleepingSet){
     threads[thread]->sleepQuantums --;
     if (threads[thread]->sleepQuantums <= 0){
+      sleepingSet.erase (runningThread);
     }
+    threads[runningThread]-> state = State::READY;
+    setRunningThread();
   }
 }
 
