@@ -17,7 +17,7 @@ public:
   // TODO: recreate constructor with new fields.
   Thread(int id, thread_entry_point entry_point)
       : tid(id), entry_point(entry_point), quantumsAlive(1),
-        state(State::READY) {}
+        state(State::READY), sleepQuantums(0) {}
 };
 
 // Use typedef to create an alias for the class
@@ -26,7 +26,7 @@ void setRunningThread();
 void removeFromReadyQueue(int);
 
 // Global variables:
-int quantom_usecs;
+int quantomUsecs;
 std::queue<int> readyQueue;
 std::set<int> blockedSet;
 std::set<int> sleepingSet;
@@ -53,14 +53,16 @@ int uthread_init(int quantum_usecs) {
     return -1;
   }
   // Todo how do I fix this leak?
-  Thread *mainThread = new Thread(0, nullptr);
+  Thread *mainThread = new (std::nothrow) Thread(0, nullptr);
   if (!mainThread) {
     // System call failed.
-
+    std::cerr << "system error: [uthread_init] memory allocation failed.\n";
+    return -1;
     // TODO: exit properly.
   }
   threads[0] = mainThread;
   runningThread = 0;
+  quantomUsecs = quantum_usecs;
   return 0;
 }
 
