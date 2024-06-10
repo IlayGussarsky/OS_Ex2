@@ -187,7 +187,27 @@ int uthread_block(int tid) {
  *
  * @return On success, return 0. On failure, return -1.
  */
-int uthread_resume(int tid) {}
+int uthread_resume(int tid) {
+  if (!threads[tid]) {
+    std::cerr
+        << "thread library error: [uthread_resume] thread does not exist.\n";
+    return -1;
+  }
+
+  State curState = threads[tid]->state;
+  if (curState == State::RUNNING || curState == State::READY) {
+    // No need to do anything.
+    return 0;
+  }
+
+  // Set state to ready and move to ready queue.
+  // TODO what if it is sleeping? can we resume a sleeping set?
+  // (Currently we will not resume a sleeping set).
+  threads[tid]->state = State::READY;
+  blockedSet.erase(tid);
+  readyQueue.push(tid);
+  return 0;
+}
 
 /**
  * @brief Blocks the RUNNING thread for num_quantums quantums.
