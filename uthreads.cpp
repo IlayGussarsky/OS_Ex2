@@ -1,7 +1,7 @@
 #include "uthreads.h"
 #include <iostream>
 #include <queue>
-
+#include <set>
 
 class Thread {
 public:
@@ -15,11 +15,12 @@ public:
 };
 
 // Use typedef to create an alias for the class
-typedef class Thread ThreadAlias;
+typedef class Thread Thread;
 
 // Global variables:
 int quantom_usecs;
 std::queue<Thread> readyQueue;
+std::set<Thread> blockedSet;
 /**
  * @brief initializes the thread library.
  *
@@ -79,7 +80,13 @@ int uthread_terminate(int tid);
  *
  * @return On success, return 0. On failure, return -1.
 */
-int uthread_block(int tid);
+int uthread_block(int tid) {
+ if (tid == 0) {
+ // Error
+
+ }
+
+}
 
 
 /**
@@ -90,7 +97,9 @@ int uthread_block(int tid);
  *
  * @return On success, return 0. On failure, return -1.
 */
-int uthread_resume(int tid);
+int uthread_resume(int tid) {
+
+}
 
 
 /**
