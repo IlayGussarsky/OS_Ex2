@@ -171,7 +171,8 @@ int uthread_terminate(int tid) {
  */
 int uthread_block(int tid) {
   if (tid == 0) {
-    std::cerr << "thread library error: it is an error to block the main thread.\n";
+    std::cerr
+        << "thread library error: it is an error to block the main thread.\n";
   }
 }
 
