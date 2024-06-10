@@ -3,6 +3,55 @@
 #include <queue>
 #include <set>
 #include <thread>
+#include <csignal>
+#include <setjmp.h>
+
+#ifdef __x86_64__
+/* code for 64 bit Intel arch */
+
+typedef unsigned long address_t;
+#define JB_SP 6
+#define JB_PC 7
+
+/* A translation is required when using an address of a variable.
+   Use this as a black box in your code. */
+address_t translate_address(address_t addr)
+{
+  address_t ret;
+  asm volatile("xor    %%fs:0x30,%0\n"
+               "rol    $0x11,%0\n"
+      : "=g" (ret)
+      : "0" (addr));
+  return ret;
+}
+
+#else
+/* code for 32 bit Intel arch */
+
+typedef unsigned int address_t;
+#define JB_SP 4
+#define JB_PC 5
+
+
+/* A translation is required when using an address of a variable.
+   Use this as a black box in your code. */
+address_t translate_address(address_t addr)
+{
+    address_t ret;
+    asm volatile("xor    %%gs:0x18,%0\n"
+                 "rol    $0x9,%0\n"
+    : "=g" (ret)
+    : "0" (addr));
+    return ret;
+}
+
+
+#endif
+#define SECOND 1000000
+#define STACK_SIZE 4096
+
+typedef void (*thread_entry_point)(void);
+
 
 enum class State { READY, BLOCKED, RUNNING };
 
@@ -10,12 +59,18 @@ class Thread {
 public:
   int tid;
   int quantumsAlive;
-  thread_entry_point entry_point;
+//  thread_entry_point entry_point;
+  sigjmp_buf env;
+
   State state;
   // Constructor to initialize tid
   Thread(int id, thread_entry_point entry_point)
-      : tid(id), entry_point(entry_point), quantumsAlive(1),
-        state(State::READY) {}
+      : tid(id), quantumsAlive(1),
+        state(State::READY) {
+    char* stack = new char[STACK_SIZE];
+    (env->__jmpbuf)[JB_SP] = translate_address ((address_t) stack + STACK_SIZE - sizeof(address_t));
+    (env->__jmpbuf)[JB_PC] = translate_address ((address_t )entry_point);
+  }
 };
 
 // Use typedef to create an alias for the class
