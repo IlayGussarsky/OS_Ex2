@@ -5,6 +5,7 @@
 #include <thread>
 #include <csignal>
 #include <setjmp.h>
+#include <sys/time.h>
 
 #ifdef __x86_64__
 /* code for 64 bit Intel arch */
@@ -91,17 +92,37 @@ int totalQuantums;
 std::vector<Thread *> threads(MAX_THREAD_NUM, nullptr);
 
 
-void scheduled_controller(){
-  sigsetjmp(threads[runningThread]->env,1);
+void scheduled_controller(int sig){
   threads[runningThread]->quantumsAlive ++;
   for (const int &thread : sleepingSet){
     threads[thread]->sleepQuantums --;
-    if (threads[thread]->sleepQuantums <= 0){
-      sleepingSet.erase (runningThread);
+    if (threads[thread]->sleepQuantums <= 0){  // if a thread finished its sleeping time put it in ready node
+      sleepingSet.erase (thread);
+      if (blockedSet.count (thread) == 0)  // check if the thread that woke up is blocked: if not put it in ready
+        {
+          readyQueue.push (thread);
+        }
     }
     threads[runningThread]-> state = State::READY;
-    setRunningThread();
+    int to_jump = sigsetjmp(threads[runningThread]->env,1); //saving the env for the current thread if we jumped here the value of to_jump will be 1, o.w 0
+    if (!to_jump){setRunningThread();}  // if to_jump = 0 then this is the first time the thread reach this line, so we need to jump;
   }
+}
+
+void start_timer(){
+  struct itimerval timer{};
+  timer.it_value.tv_sec = quantomUsecs / 1000;        // first time interval, seconds part
+  timer.it_value.tv_usec = quantomUsecs % 1000;        // first time interval, microseconds part
+
+  // configure the timer to expire every 3 sec after that.
+  timer.it_interval.tv_sec = quantomUsecs / 1000;    // following time intervals, seconds part
+  timer.it_interval.tv_usec = quantomUsecs % 1000;    // following time intervals, microseconds part
+
+  // Start a virtual timer. It counts down whenever this process is executing.
+  if (setitimer(ITIMER_VIRTUAL, &timer, nullptr))
+    {
+      printf("setitimer error.");  // Todo: set a correct error
+    }
 }
 
 /**
@@ -133,6 +154,16 @@ int uthread_init(int quantum_usecs) {
   threads[0] = mainThread;
   runningThread = 0;
   quantomUsecs = quantum_usecs;
+  struct sigaction sa = {nullptr};
+
+
+  // Install timer_handler as the signal handler for SIGVTALRM.
+  sa.sa_handler = &scheduled_controller;
+  if (sigaction(SIGVTALRM, &sa, nullptr) < 0)
+    {
+      printf("sigaction error.");  // Todo: set a correct error
+    }
+  start_timer();
   return 0;
 }
 
@@ -375,6 +406,8 @@ void setRunningThread() {
   readyQueue.pop();
   threads[nextRunningThread]->state = State::RUNNING;
   runningThread = nextRunningThread;
+  siglongjmp (threads[nextRunningThread]->env,1);
+
 }
 
 void removeFromReadyQueue(int tid) {
