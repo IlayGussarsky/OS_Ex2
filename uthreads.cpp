@@ -71,6 +71,7 @@ public:
       : tid(id), quantumsAlive(1),
         state(State::READY) {
     char* stack = new char[STACK_SIZE];
+
     sigsetjmp(env, 1);
     (env->__jmpbuf)[JB_SP] = translate_address ((address_t) stack + STACK_SIZE - sizeof(address_t));
     (env->__jmpbuf)[JB_PC] = translate_address ((address_t )entry_point);
@@ -94,18 +95,23 @@ std::vector<Thread *> threads(MAX_THREAD_NUM, nullptr);
 
 void scheduled_controller(int sig){
   threads[runningThread]->quantumsAlive ++;
-  for (const int &thread : sleepingSet){
-    threads[thread]->sleepQuantums --;
-    if (threads[thread]->sleepQuantums <= 0){  // if a thread finished its sleeping time put it in ready node
-      sleepingSet.erase (thread);
-      if (blockedSet.count (thread) == 0)  // check if the thread that woke up is blocked: if not put it in ready
-        {
-          readyQueue.push (thread);
+  totalQuantums ++;
+  for (const int &thread : sleepingSet)
+    {
+      threads[thread]->sleepQuantums--;
+      if (threads[thread]->sleepQuantums <= 0)
+        {  // if a thread finished its sleeping time put it in ready node
+          sleepingSet.erase (thread);
+          if (blockedSet.count (thread) == 0)  // check if the thread that woke up is blocked: if not put it in ready
+            {
+              readyQueue.push (thread);
+            }
         }
     }
-    threads[runningThread]-> state = State::READY;
-    int to_jump = sigsetjmp(threads[runningThread]->env,1); //saving the env for the current thread if we jumped here the value of to_jump will be 1, o.w 0
-    if (!to_jump){setRunningThread();}  // if to_jump = 0 then this is the first time the thread reach this line, so we need to jump;
+  if (!readyQueue.empty()){
+      threads[runningThread]-> state = State::READY;
+      readyQueue.push (runningThread);
+      setRunningThread();
   }
 }
 
@@ -154,9 +160,9 @@ int uthread_init(int quantum_usecs) {
   threads[0] = mainThread;
   runningThread = 0;
   quantomUsecs = quantum_usecs;
+  totalQuantums = 1;
+
   struct sigaction sa = {nullptr};
-
-
   // Install timer_handler as the signal handler for SIGVTALRM.
   sa.sa_handler = &scheduled_controller;
   if (sigaction(SIGVTALRM, &sa, nullptr) < 0)
@@ -191,6 +197,9 @@ int uthread_spawn(thread_entry_point entry_point) {
   }
   Thread *newThread = new Thread(curID, entry_point);
   threads[curID] = newThread;
+  readyQueue.push (curID);
+  totalQuantums ++;
+  start_timer();
   return curID;
 }
 
@@ -226,9 +235,12 @@ int uthread_terminate(int tid) {
     // Remove from blocked set.
     // Make sure it is indeed in blocked set:
     if (blockedSet.find(tid) == blockedSet.end()) {
-      // TODO: handle this.
+      sleepingSet.erase (tid);  // TODO: i belive this is true but im not sure
     }
-    blockedSet.erase(tid);
+    else
+      {
+        blockedSet.erase(tid);
+      }
   }
   if (threads[tid]->state == State::RUNNING) {
     // Handle the fact that it is currently running:
@@ -236,9 +248,9 @@ int uthread_terminate(int tid) {
     // is terminated (and then we would not reach this code).
     if (readyQueue.empty()) {
       // TODO: handle this, I don't believe we should reach here.
+      //  Answer: - the main thread can never be blocked :)
     }
     setRunningThread();
-
     // TODO: Reset timer.
   }
   delete threads[tid];
@@ -307,9 +319,12 @@ int uthread_resume(int tid) {
   // Set state to ready and move to ready queue.
   // TODO what if it is sleeping? can we resume a sleeping set?
   // (Currently we will not resume a sleeping set).
-  threads[tid]->state = State::READY;
   blockedSet.erase(tid);
-  readyQueue.push(tid);
+  if (threads[tid]->sleepQuantums == 0)
+    {
+      readyQueue.push(tid);
+      threads[tid]->state = State::READY;
+    }
   return 0;
 }
 
@@ -405,9 +420,12 @@ void setRunningThread() {
   const int nextRunningThread = readyQueue.front();
   readyQueue.pop();
   threads[nextRunningThread]->state = State::RUNNING;
-  runningThread = nextRunningThread;
-  siglongjmp (threads[nextRunningThread]->env,1);
-
+  int to_jump = sigsetjmp(threads[runningThread]->env,1); //saving the env for the current thread if we jumped here the value of to_jump will be 1, o.w 0
+  if (!to_jump)
+  {
+    runningThread = nextRunningThread;
+    siglongjmp (threads[nextRunningThread]->env,1); // if to_jump = 0 then this is the first time the thread reach this line, so we need to jump
+  }
 }
 
 void removeFromReadyQueue(int tid) {
