@@ -1,11 +1,11 @@
 #include "uthreads.h"
+#include <csignal>
 #include <iostream>
 #include <queue>
 #include <set>
-#include <thread>
-#include <csignal>
 #include <setjmp.h>
 #include <sys/time.h>
+#include <thread>
 
 #ifdef __x86_64__
 /* code for 64 bit Intel arch */
@@ -16,13 +16,12 @@ typedef unsigned long address_t;
 
 /* A translation is required when using an address of a variable.
    Use this as a black box in your code. */
-address_t translate_address(address_t addr)
-{
+address_t translate_address(address_t addr) {
   address_t ret;
   asm volatile("xor    %%fs:0x30,%0\n"
                "rol    $0x11,%0\n"
-      : "=g" (ret)
-      : "0" (addr));
+               : "=g"(ret)
+               : "0"(addr));
   return ret;
 }
 
@@ -33,26 +32,22 @@ typedef unsigned int address_t;
 #define JB_SP 4
 #define JB_PC 5
 
-
 /* A translation is required when using an address of a variable.
    Use this as a black box in your code. */
-address_t translate_address(address_t addr)
-{
-    address_t ret;
-    asm volatile("xor    %%gs:0x18,%0\n"
-                 "rol    $0x9,%0\n"
-    : "=g" (ret)
-    : "0" (addr));
-    return ret;
+address_t translate_address(address_t addr) {
+  address_t ret;
+  asm volatile("xor    %%gs:0x18,%0\n"
+               "rol    $0x9,%0\n"
+               : "=g"(ret)
+               : "0"(addr));
+  return ret;
 }
-
 
 #endif
 #define SECOND 1000000
 #define STACK_SIZE 4096
 
 typedef void (*thread_entry_point)(void);
-
 
 enum class State { READY, BLOCKED, RUNNING };
 
@@ -68,20 +63,20 @@ public:
   // Constructor to initialize tid
   // TODO: recreate constructor with new fields.
   Thread(int id, thread_entry_point entry_point)
-      : tid(id), quantumsAlive(1),
-        state(State::READY) {
-    char* stack = new char[STACK_SIZE];
+      : tid(id), quantumsAlive(1), state(State::READY) {
+    char *stack = new char[STACK_SIZE];
 
     sigsetjmp(env, 1);
-    (env->__jmpbuf)[JB_SP] = translate_address ((address_t) stack + STACK_SIZE - sizeof(address_t));
-    (env->__jmpbuf)[JB_PC] = translate_address ((address_t )entry_point);
+    (env->__jmpbuf)[JB_SP] =
+        translate_address((address_t)stack + STACK_SIZE - sizeof(address_t));
+    (env->__jmpbuf)[JB_PC] = translate_address((address_t)entry_point);
   }
 };
 
 // Use typedef to create an alias for the class
 void freeMemory();
 void setRunningThread();
-void removeFromReadyQueue(int);
+bool removeFromReadyQueue(int);
 
 // Global variables:
 int quantomUsecs;
@@ -92,43 +87,45 @@ int runningThread;
 int totalQuantums;
 std::vector<Thread *> threads(MAX_THREAD_NUM, nullptr);
 
-
-void scheduled_controller(int sig){
-  threads[runningThread]->quantumsAlive ++;
-  totalQuantums ++;
-  for (const int &thread : sleepingSet)
-    {
-      threads[thread]->sleepQuantums--;
-      if (threads[thread]->sleepQuantums <= 0)
-        {  // if a thread finished its sleeping time put it in ready node
-          sleepingSet.erase (thread);
-          if (blockedSet.count (thread) == 0)  // check if the thread that woke up is blocked: if not put it in ready
-            {
-              readyQueue.push (thread);
-            }
-        }
+void scheduled_controller(int sig) {
+  threads[runningThread]->quantumsAlive++;
+  totalQuantums++;
+  for (const int &thread : sleepingSet) {
+    threads[thread]->sleepQuantums--;
+    if (threads[thread]->sleepQuantums <=
+        0) { // if a thread finished its sleeping time put it in ready node
+      sleepingSet.erase(thread);
+      if (blockedSet.count(thread) == 0) // check if the thread that woke up is
+                                         // blocked: if not put it in ready
+      {
+        readyQueue.push(thread);
+      }
     }
-  if (!readyQueue.empty()){
-      threads[runningThread]-> state = State::READY;
-      readyQueue.push (runningThread);
-      setRunningThread();
+  }
+  if (!readyQueue.empty()) {
+    threads[runningThread]->state = State::READY;
+    readyQueue.push(runningThread);
+    setRunningThread();
   }
 }
 
-void start_timer(){
-  struct itimerval timer{};
-  timer.it_value.tv_sec = quantomUsecs / 1000;        // first time interval, seconds part
-  timer.it_value.tv_usec = quantomUsecs % 1000;        // first time interval, microseconds part
+void start_timer() {
+  struct itimerval timer {};
+  timer.it_value.tv_sec =
+      quantomUsecs / 1000; // first time interval, seconds part
+  timer.it_value.tv_usec =
+      quantomUsecs % 1000; // first time interval, microseconds part
 
   // configure the timer to expire every 3 sec after that.
-  timer.it_interval.tv_sec = quantomUsecs / 1000;    // following time intervals, seconds part
-  timer.it_interval.tv_usec = quantomUsecs % 1000;    // following time intervals, microseconds part
+  timer.it_interval.tv_sec =
+      quantomUsecs / 1000; // following time intervals, seconds part
+  timer.it_interval.tv_usec =
+      quantomUsecs % 1000; // following time intervals, microseconds part
 
   // Start a virtual timer. It counts down whenever this process is executing.
-  if (setitimer(ITIMER_VIRTUAL, &timer, nullptr))
-    {
-      printf("setitimer error.");  // Todo: set a correct error
-    }
+  if (setitimer(ITIMER_VIRTUAL, &timer, nullptr)) {
+    printf("setitimer error."); // Todo: set a correct error
+  }
 }
 
 /**
@@ -165,10 +162,9 @@ int uthread_init(int quantum_usecs) {
   struct sigaction sa = {nullptr};
   // Install timer_handler as the signal handler for SIGVTALRM.
   sa.sa_handler = &scheduled_controller;
-  if (sigaction(SIGVTALRM, &sa, nullptr) < 0)
-    {
-      printf("sigaction error.");  // Todo: set a correct error
-    }
+  if (sigaction(SIGVTALRM, &sa, nullptr) < 0) {
+    printf("sigaction error."); // Todo: set a correct error
+  }
   start_timer();
   return 0;
 }
@@ -197,8 +193,8 @@ int uthread_spawn(thread_entry_point entry_point) {
   }
   Thread *newThread = new Thread(curID, entry_point);
   threads[curID] = newThread;
-  readyQueue.push (curID);
-  totalQuantums ++;
+  readyQueue.push(curID);
+  totalQuantums++;
   start_timer();
   return curID;
 }
@@ -235,12 +231,10 @@ int uthread_terminate(int tid) {
     // Remove from blocked set.
     // Make sure it is indeed in blocked set:
     if (blockedSet.find(tid) == blockedSet.end()) {
-      sleepingSet.erase (tid);  // TODO: i belive this is true but im not sure
+      sleepingSet.erase(tid); // TODO: i belive this is true but im not sure
+    } else {
+      blockedSet.erase(tid);
     }
-    else
-      {
-        blockedSet.erase(tid);
-      }
   }
   if (threads[tid]->state == State::RUNNING) {
     // Handle the fact that it is currently running:
@@ -287,8 +281,11 @@ int uthread_block(int tid) {
     setRunningThread();
     return 0;
   }
-  // Now we may assume that we are removing a thread that is ready.
-  removeFromReadyQueue(tid);
+  // Now we may assume that we are removing a thread that is ready or sleeping.
+  // removeFromReadyQueue also works if not in ready queue.
+  bool didRemove = removeFromReadyQueue(tid);
+  // TODO: do we want to uncomment this? This is a kind of error check.
+  // if (didRemove && threads[tid]->sleepQuantums>0) {}
   blockedSet.insert(tid);
   threads[tid]->state = State::BLOCKED;
   return 0;
@@ -320,11 +317,10 @@ int uthread_resume(int tid) {
   // TODO what if it is sleeping? can we resume a sleeping set?
   // (Currently we will not resume a sleeping set).
   blockedSet.erase(tid);
-  if (threads[tid]->sleepQuantums == 0)
-    {
-      readyQueue.push(tid);
-      threads[tid]->state = State::READY;
-    }
+  if (threads[tid]->sleepQuantums == 0) {
+    readyQueue.push(tid);
+    threads[tid]->state = State::READY;
+  }
   return 0;
 }
 
@@ -349,11 +345,13 @@ int uthread_sleep(int num_quantums) {
     std::cerr << "thread library error: cannot put main thread to sleep.\n";
     return -1;
   }
-
+  // A sleeping set is not blocked. But is removed from readyQueue.
   threads[tid]->sleepQuantums = num_quantums;
-  threads[tid]->state = State::BLOCKED;
   sleepingSet.insert(tid);
+  // Set new running thread as we have set ourselves to sleep.
   setRunningThread();
+  // Make sure we are not in readyQueue.
+  removeFromReadyQueue(tid);
   return 0;
 }
 
@@ -420,21 +418,27 @@ void setRunningThread() {
   const int nextRunningThread = readyQueue.front();
   readyQueue.pop();
   threads[nextRunningThread]->state = State::RUNNING;
-  int to_jump = sigsetjmp(threads[runningThread]->env,1); //saving the env for the current thread if we jumped here the value of to_jump will be 1, o.w 0
-  if (!to_jump)
-  {
+  int to_jump =
+      sigsetjmp(threads[runningThread]->env,
+                1); // saving the env for the current thread if we jumped here
+                    // the value of to_jump will be 1, o.w 0
+  if (!to_jump) {
     runningThread = nextRunningThread;
-    siglongjmp (threads[nextRunningThread]->env,1); // if to_jump = 0 then this is the first time the thread reach this line, so we need to jump
+    siglongjmp(threads[nextRunningThread]->env,
+               1); // if to_jump = 0 then this is the first time the thread
+                   // reach this line, so we need to jump
   }
 }
 
-void removeFromReadyQueue(int tid) {
+bool removeFromReadyQueue(int tid) {
   std::queue<int> tmpQueue;
+  bool ret = false;
   // Copy queue to tmpQueue, not copying the unwanted tid.
   while (!readyQueue.empty()) {
     int cur = readyQueue.front();
     readyQueue.pop();
     if (cur == tid) {
+      ret = true;
       continue;
     }
     tmpQueue.push(cur);
@@ -445,4 +449,5 @@ void removeFromReadyQueue(int tid) {
     tmpQueue.pop();
     readyQueue.push(cur);
   }
+  return ret;
 }
