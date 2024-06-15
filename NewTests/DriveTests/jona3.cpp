@@ -5,7 +5,7 @@
 
 #include <cstdio>
 #include <cstdlib>
-#include "uthreads.h"
+#include "../../uthreads.h"
 
 #define GRN "\e[32m"
 #define RED "\x1B[31m"
@@ -84,13 +84,13 @@ int main()
     fflush(stdout);
 
 	int q[2] = {10, 20};
-	uthread_init(q, 2);
-    uthread_spawn(run_test, 0);
-    uthread_spawn(run_test, 1);
-    uthread_spawn(run_test, 0);
-    uthread_spawn(run_test, 1);
-    uthread_spawn(run_test, 0);
-    uthread_spawn(run_test, 0);
+	uthread_init(1000);
+    uthread_spawn(run_test);
+    uthread_spawn(run_test);
+    uthread_spawn(run_test);
+    uthread_spawn(run_test);
+    uthread_spawn(run_test);
+    uthread_spawn(run_test);
 
     for (int i = 1; i < NUM_THREADS; i++)
     {

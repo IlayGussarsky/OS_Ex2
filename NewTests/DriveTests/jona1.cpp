@@ -5,7 +5,7 @@
 
 #include <cstdio>
 #include <cstdlib>
-#include "uthreads.h"
+#include "../../uthreads.h"
 
 #define GRN "\e[32m"
 #define RED "\x1B[31m"
@@ -47,40 +47,40 @@ int main()
     fflush(stdout);
 
 	int q[2] = {10, 20};
-	uthread_init(q, 2);
-    if (uthread_spawn(thread1, 0) != 1)
+	uthread_init(10000);
+    if (uthread_spawn(thread1) != 1)
         error();
-    if (uthread_spawn(thread2, 0) != 2)
+    if (uthread_spawn(thread2) != 2)
         error();
-    if (uthread_spawn(thread2, 1) != 3)
+    if (uthread_spawn(thread2) != 3)
         error();
-    if (uthread_spawn(thread1, 0) != 4)
+    if (uthread_spawn(thread1) != 4)
         error();
-    if (uthread_spawn(thread2, 1) != 5)
+    if (uthread_spawn(thread2) != 5)
         error();
-    if (uthread_spawn(thread1, 0) != 6)
+    if (uthread_spawn(thread1) != 6)
         error();
 
     uthread_terminate(5);
-    if (uthread_spawn(thread1, 1) != 5)
+    if (uthread_spawn(thread1) != 5)
         error();
 
     wait_next_quantum();
     wait_next_quantum();
 
     uthread_terminate(5);
-    if (uthread_spawn(thread1, 0) != 5)
+    if (uthread_spawn(thread1) != 5)
         error();
 
     uthread_terminate(2);
-    if (uthread_spawn(thread2, 1) != 2)
+    if (uthread_spawn(thread2) != 2)
         error();
 
     uthread_terminate(3);
     uthread_terminate(4);
-    if (uthread_spawn(thread2, 0) != 3)
+    if (uthread_spawn(thread2) != 3)
         error();
-    if (uthread_spawn(thread1, 1) != 4)
+    if (uthread_spawn(thread1) != 4)
         error();
 
     printf(GRN "SUCCESS\n" RESET);
