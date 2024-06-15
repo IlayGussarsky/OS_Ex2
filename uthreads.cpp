@@ -102,7 +102,7 @@ void scheduledController (int sig)
       freeMemory ();
       exit (1);
     }
-  threads[runningThread]->quantumsAlive++;
+
   totalQuantums++;
   std::set<int> wakingUpThreads;
 
@@ -127,7 +127,10 @@ void scheduledController (int sig)
     }
   // TODO: is this redundent? @nahtomi
   threads[runningThread]->state = State::READY;
-  readyQueue.push (runningThread);
+  if (sleepingSet.count (runningThread) == 0)
+    {
+      readyQueue.push (runningThread);
+    }
   if (sigprocmask (SIG_UNBLOCK, &vtalarm_block_set, NULL) == -1)
     {
       std::cerr << "system error: [uthread_terminate] sigprocmask failed.\n";
@@ -135,6 +138,7 @@ void scheduledController (int sig)
       exit (1);
     }
   setRunningThread ();
+  threads[runningThread]->quantumsAlive++;
 }
 
 void startTimer ()
@@ -194,6 +198,7 @@ int uthread_init (int quantum_usecs)
   runningThread = 0;
   quantomUsecs = quantum_usecs;
   totalQuantums = 1;
+  threads[runningThread]->quantumsAlive = 1;
 
   struct sigaction sa = {nullptr};
   // Install timer_handler as the signal handler for SIGVTALRM.
@@ -461,7 +466,7 @@ int uthread_sleep (int num_quantums)
       return -1;
     }
   // A sleeping vtalarm_block_set is not blocked. But is removed from readyQueue.
-  threads[tid]->sleepQuantums = num_quantums;
+  threads[tid]->sleepQuantums = num_quantums + 1;
   sleepingSet.insert (tid);
 
   // Make sure we are not in readyQueue.
