@@ -86,8 +86,11 @@ std::set<int> sleepingSet;
 int runningThread;
 int totalQuantums;
 std::vector<Thread *> threads(MAX_THREAD_NUM, nullptr);
+sigset_t vtalarm_block_set;
+
 
 void scheduledController(int sig) {
+  std::cout << "schedual";
   threads[runningThread]->quantumsAlive++;
   totalQuantums++;
   for (const int &thread : sleepingSet) {
@@ -112,15 +115,15 @@ void scheduledController(int sig) {
 void startTimer() {
   struct itimerval timer {};
   timer.it_value.tv_sec =
-      quantomUsecs / 1000; // first time interval, seconds part
+      quantomUsecs / 1000000; // first time interval, seconds part
   timer.it_value.tv_usec =
-      quantomUsecs % 1000; // first time interval, microseconds part
+      quantomUsecs % 1000000; // first time interval, microseconds part
 
   // configure the timer to expire every 3 sec after that.
   timer.it_interval.tv_sec =
-      quantomUsecs / 1000; // following time intervals, seconds part
+      quantomUsecs / 1000000; // following time intervals, seconds part
   timer.it_interval.tv_usec =
-      quantomUsecs % 1000; // following time intervals, microseconds part
+      quantomUsecs % 1000000; // following time intervals, microseconds part
 
   // Start a virtual timer. It counts down whenever this process is executing.
   if (setitimer(ITIMER_VIRTUAL, &timer, nullptr)) {
@@ -132,7 +135,7 @@ void startTimer() {
 /**
  * @brief initializes the thread library.
  *
- * Once this function returns, the main thread (tid == 0) will be set as
+ * Once this function returns, the main thread (tid == 0) will be vtalarm_block_set as
  * RUNNING. There is no need to provide an entry_point or to create a stack for
  * the main thread - it will be using the "regular" stack and PC. You may assume
  * that this function is called before any other thread library function, and
@@ -154,6 +157,8 @@ int uthread_init(int quantum_usecs) {
     std::cerr << "system error: [uthread_init] memory allocation failed.\n";
     exit(1);
   }
+  sigemptyset(&vtalarm_block_set);
+  sigaddset(&vtalarm_block_set, SIGVTALRM);
   threads[0] = mainThread;
   runningThread = 0;
   quantomUsecs = quantum_usecs;
@@ -213,6 +218,11 @@ int uthread_spawn(thread_entry_point entry_point) {
  * the function does not return.
  */
 int uthread_terminate(int tid) {
+
+  if (sigprocmask (SIG_BLOCK, &vtalarm_block_set, nullptr) == -1)
+    return -1; //TODO: throw error
+
+
   if (!validateTID(tid)) {
     std::cerr << "thread library error: [uthread_terminate] invalid tid - no "
                  "thread with this tid exists.\n";
@@ -231,8 +241,13 @@ int uthread_terminate(int tid) {
   // Anyway, remove it from sleepingSet and blockedSet. No harm-no foul.
   sleepingSet.erase(tid);
   blockedSet.erase(tid);
+  bool is_running = threads[tid]->state == State::RUNNING;
+  delete threads[tid];
+  threads[tid] = nullptr;
 
-  if (threads[tid]->state == State::RUNNING) {
+
+
+  if (is_running) {
     // Handle the fact that it is currently running:
     // I think there has to be something in readyQueue - either 0 is there or it
     // is terminated (and then we would not reach this code).
@@ -240,12 +255,24 @@ int uthread_terminate(int tid) {
       // TODO: handle this, I don't believe we should reach here.
       //  Answer: - the main thread can never be blocked :)
     }
-    setRunningThread();
     // TODO: Understand weather calling this is enough to restart timer.
+
+
+    const int nextRunningThread = readyQueue.front();
+    readyQueue.pop();
+    threads[nextRunningThread]->state = State::RUNNING;
+      if (sigprocmask(SIG_UNBLOCK, &vtalarm_block_set, NULL) == -1) {
+          return -1; //TODO: throw error
+        }
     startTimer();
-  }
-  delete threads[tid];
-  threads[tid] = nullptr;
+    siglongjmp(threads[nextRunningThread]->env,1);
+    }
+    else{
+      if (sigprocmask(SIG_UNBLOCK, &vtalarm_block_set, NULL) == -1) {
+          return -1; //TODO: throw error
+        }
+    }
+
 
   return 0;
 }
@@ -262,6 +289,10 @@ int uthread_terminate(int tid) {
  * @return On success, return 0. On failure, return -1.
  */
 int uthread_block(int tid) {
+
+  if (sigprocmask (SIG_BLOCK, &vtalarm_block_set, nullptr) == -1)
+    return -1; //TODO: throw error
+
   if (tid == 0) {
     std::cerr << "thread library error: [uthread_block] it is an error to "
                  "block the main thread.\n";
@@ -285,6 +316,9 @@ int uthread_block(int tid) {
   // if (didRemove && threads[tid]->sleepQuantums>0) {}
   blockedSet.insert(tid);
   threads[tid]->state = State::BLOCKED;
+  if (sigprocmask(SIG_UNBLOCK, &vtalarm_block_set, NULL) == -1) {
+      return -1; //TODO: throw error
+    }
   return 0;
 }
 
@@ -298,6 +332,9 @@ int uthread_block(int tid) {
  * @return On success, return 0. On failure, return -1.
  */
 int uthread_resume(int tid) {
+  if (sigprocmask (SIG_BLOCK, &vtalarm_block_set, nullptr) == -1)
+    return -1; //TODO: throw error
+
   if (!validateTID(tid)) {
     std::cerr << "thread library error: [uthread_resume] invalid tid - no "
                  "thread with this tid exists.\n";
@@ -311,13 +348,16 @@ int uthread_resume(int tid) {
   }
 
   // Set state to ready and move to ready queue.
-  // TODO what if it is sleeping? can we resume a sleeping set?
-  // (Currently we will not resume a sleeping set).
+  // TODO what if it is sleeping? can we resume a sleeping vtalarm_block_set? no!
+  // (Currently we will not resume a sleeping vtalarm_block_set).
   blockedSet.erase(tid);
   if (threads[tid]->sleepQuantums == 0) {
     readyQueue.push(tid);
     threads[tid]->state = State::READY;
   }
+  if (sigprocmask(SIG_UNBLOCK, &vtalarm_block_set, NULL) == -1) {
+      return -1; //TODO: throw error
+    }
   return 0;
 }
 
@@ -337,21 +377,25 @@ int uthread_resume(int tid) {
  * @return On success, return 0. On failure, return -1.
  */
 int uthread_sleep(int num_quantums) {
+  if (sigprocmask (SIG_BLOCK, &vtalarm_block_set, nullptr) == -1)
+    return -1; //TODO: throw error
+
   int tid = uthread_get_tid();
   if (tid == 0) {
     std::cerr << "thread library error: [uthread_sleep] cannot put main thread "
                  "to sleep.\n";
     return -1;
   }
-  // A sleeping set is not blocked. But is removed from readyQueue.
+  // A sleeping vtalarm_block_set is not blocked. But is removed from readyQueue.
   threads[tid]->sleepQuantums = num_quantums;
   sleepingSet.insert(tid);
-  // Set new running thread as we have set ourselves to sleep.
+  // Set new running thread as we have vtalarm_block_set ourselves to sleep.
 
   // e.g. increment quantums and decrement sleep.
   setRunningThread();
   // Make sure we are not in readyQueue.
   removeFromReadyQueue(tid);
+  sigemptyset (&threads[tid]->env->__saved_mask);
   return 0;
 }
 
@@ -464,3 +508,7 @@ bool validateTID(int tid) {
   }
   return true;
 }
+
+//int block_vtalarm(){
+
+//}
