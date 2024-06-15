@@ -95,9 +95,11 @@ sigset_t vtalarm_block_set;
 void scheduledController(int sig)
 {
     // TODO: add block and unblock
-    std::cout << "schedual";
+    // std::cout << "schedual";
     threads[runningThread]->quantumsAlive++;
     totalQuantums++;
+    std::set<int> wakingUpThreads;
+
     for (const int& thread : sleepingSet)
     {
         threads[thread]->sleepQuantums--;
@@ -105,13 +107,17 @@ void scheduledController(int sig)
             0)
         {
             // if a thread finished its sleeping time put it in ready node
-            sleepingSet.erase(thread);
+            wakingUpThreads.insert(thread);
             if (blockedSet.count(thread) == 0) // check if the thread that woke up is
             // blocked: if not put it in ready
             {
                 readyQueue.push(thread);
             }
         }
+    }
+    for (const int& thread : wakingUpThreads)
+    {
+        sleepingSet.erase(thread);
     }
     // TODO: is this redundent? @nahtomi
     threads[runningThread]->state = State::READY;
