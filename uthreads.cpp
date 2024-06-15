@@ -90,7 +90,6 @@ sigset_t vtalarm_block_set;
 
 
 void scheduledController(int sig) {
-  std::cout << "schedual";
   threads[runningThread]->quantumsAlive++;
   totalQuantums++;
   for (const int &thread : sleepingSet) {
@@ -220,7 +219,9 @@ int uthread_spawn(thread_entry_point entry_point) {
 int uthread_terminate(int tid) {
 
   if (sigprocmask (SIG_BLOCK, &vtalarm_block_set, nullptr) == -1)
-    return -1; //TODO: throw error
+    {
+      return -1; //TODO: throw error
+    }
 
 
   if (!validateTID(tid)) {
@@ -260,6 +261,7 @@ int uthread_terminate(int tid) {
 
     const int nextRunningThread = readyQueue.front();
     readyQueue.pop();
+    runningThread = nextRunningThread;
     threads[nextRunningThread]->state = State::RUNNING;
       if (sigprocmask(SIG_UNBLOCK, &vtalarm_block_set, NULL) == -1) {
           return -1; //TODO: throw error
@@ -291,7 +293,9 @@ int uthread_terminate(int tid) {
 int uthread_block(int tid) {
 
   if (sigprocmask (SIG_BLOCK, &vtalarm_block_set, nullptr) == -1)
-    return -1; //TODO: throw error
+    {
+      return -1; //TODO: throw error
+    }
 
   if (tid == 0) {
     std::cerr << "thread library error: [uthread_block] it is an error to "
@@ -333,7 +337,9 @@ int uthread_block(int tid) {
  */
 int uthread_resume(int tid) {
   if (sigprocmask (SIG_BLOCK, &vtalarm_block_set, nullptr) == -1)
-    return -1; //TODO: throw error
+    {
+      return -1; //TODO: throw error
+    }
 
   if (!validateTID(tid)) {
     std::cerr << "thread library error: [uthread_resume] invalid tid - no "
@@ -378,7 +384,9 @@ int uthread_resume(int tid) {
  */
 int uthread_sleep(int num_quantums) {
   if (sigprocmask (SIG_BLOCK, &vtalarm_block_set, nullptr) == -1)
-    return -1; //TODO: throw error
+    {
+      return -1; //TODO: throw error
+    }
 
   int tid = uthread_get_tid();
   if (tid == 0) {
@@ -395,7 +403,9 @@ int uthread_sleep(int num_quantums) {
   setRunningThread();
   // Make sure we are not in readyQueue.
   removeFromReadyQueue(tid);
-  sigemptyset (&threads[tid]->env->__saved_mask);
+  if (sigprocmask(SIG_UNBLOCK, &vtalarm_block_set, NULL) == -1) {
+      return -1; //TODO: throw error
+    }
   return 0;
 }
 
