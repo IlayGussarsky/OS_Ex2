@@ -95,7 +95,6 @@ sigset_t vtalarm_block_set;
 void scheduledController(int sig)
 {
     // TODO: add block and unblock
-    std::cout << "schedual";
     threads[runningThread]->quantumsAlive++;
     totalQuantums++;
     for (const int& thread : sleepingSet)
