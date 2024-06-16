@@ -126,11 +126,14 @@ void scheduledController(int sig)
         sleepingSet.erase(thread);
     }
     // TODO: is this redundent? @nahtomi
-    threads[runningThread]->state = State::READY;
-
-    if (sleepingSet.count(runningThread) == 0)
+    if (threads[runningThread]->state == State::RUNNING)
     {
-        readyQueue.push(runningThread);
+
+        if (sleepingSet.count(runningThread) == 0)
+        {
+            threads[runningThread]->state = State::READY;
+            readyQueue.push(runningThread);
+        }
     }
 
     setRunningThread();
@@ -195,6 +198,7 @@ int uthread_init(int quantum_usecs)
     quantomUsecs = quantum_usecs;
     totalQuantums = 1;
     threads[runningThread]->quantumsAlive = 1;
+    threads[runningThread]->state = State::RUNNING;
 
     struct sigaction sa = {nullptr};
     // Install timer_handler as the signal handler for SIGVTALRM.
@@ -439,6 +443,7 @@ int uthread_block(int tid)
     if (uthread_get_tid() == tid)
     {
         threads[tid]->state = State::BLOCKED;
+        blockedSet.insert(tid);
 
 
         if (sigprocmask(SIG_UNBLOCK, &vtalarm_block_set, NULL) == -1)
