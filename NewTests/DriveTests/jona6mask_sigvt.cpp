@@ -14,7 +14,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <cstdio>
-#include "uthreads.h"
+#include "../../uthreads.h"
 
 
 #define GRN "\e[32m"
@@ -129,16 +129,16 @@ int main()
     sigaddset(&set3, SIGBUS);
 
 	int q[2] = {10, 20};
-	uthread_init(q, 2);
+	uthread_init(10000);
 
     for (int i = 1; i < NUM_THREADS; i++)
     {
         thread_status[i] = RUN;
     }
 
-    int t1 = uthread_spawn(thread1, 0);
-    int t2 = uthread_spawn(thread2, 0);
-    int t3 = uthread_spawn(thread3, 1);
+    int t1 = uthread_spawn(thread1);
+    int t2 = uthread_spawn(thread2);
+    int t3 = uthread_spawn(thread3);
 
     if (t1 == -1 || t2 == -1 || t3 == -1)
     {

@@ -14,7 +14,7 @@
 #include <deque>
 #include <list>
 #include <assert.h>
-#include "../uthreads.h"
+#include "../../uthreads.h"
 //#include "libuthread.a"
 #include <iostream>
 
@@ -50,14 +50,14 @@ void h (void)
 int main(void)
 {
 	int q[2] = {10, 20};
-	if (uthread_init(q, 2) == -1)
+	if (uthread_init(10000) == -1)
     {
         return 0;
     }
 
-    uthread_spawn(f, 0);
-    uthread_spawn(g, 0);
-    uthread_spawn(h, 1);
+    uthread_spawn(f);
+    uthread_spawn(g);
+    uthread_spawn(h);
 
     while(uthread_get_total_quantums() < 10)
     {

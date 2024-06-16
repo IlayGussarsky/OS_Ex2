@@ -28,7 +28,7 @@
 #include <cstdio>
 #include <cstring>
 #include <time.h>
-#include "uthreads.h"
+#include "../../uthreads.h"
 
 #define GRN "\e[32m"
 #define RED "\x1B[31m"
@@ -158,8 +158,8 @@ void thread6()
 
 void thread1()
 {
-    int t3 = uthread_spawn(thread3, 0);
-    int t4 = uthread_spawn(thread4, 1);
+    int t3 = uthread_spawn(thread3);
+    int t4 = uthread_spawn(thread4);
 
     if (t3 == -1 || t4 == -1)
     {
@@ -177,8 +177,8 @@ void thread1()
 
 void thread2()
 {
-    int t5 = uthread_spawn(thread5, 0);
-    int t6 = uthread_spawn(thread6, 1);
+    int t5 = uthread_spawn(thread5);
+    int t6 = uthread_spawn(thread6);
 
     if (t5 == -1 || t6 == -1)
     {
@@ -223,10 +223,10 @@ int main()
     }
 
 	int q[2] = {10, 20};
-	uthread_init(q, 2);
+	uthread_init(10000);
 
-    int t1 = uthread_spawn(thread1, 0);
-    int t2 = uthread_spawn(thread2, 1);
+    int t1 = uthread_spawn(thread1);
+    int t2 = uthread_spawn(thread2);
     if (t1 == -1 || t2 == -1)
     {
         printf(RED "ERROR - thread spawn failed\n" RESET);

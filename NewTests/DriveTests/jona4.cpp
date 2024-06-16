@@ -20,7 +20,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <time.h>
-#include "uthreads.h"
+#include "../../uthreads.h"
 
 
 #define GRN "\e[32m"
@@ -165,13 +165,13 @@ int main()
     // threads 4,5 - denominator
 
 	int q[2] = {10, 20};
-	uthread_init(q, 2);
+	uthread_init(1000);
 
-    uthread_spawn(thread1, 0);
-    uthread_spawn(thread2, 0);
-    uthread_spawn(thread3, 0);
-    uthread_spawn(thread4, 1);
-    uthread_spawn(thread5, 1);
+    uthread_spawn(thread1);
+    uthread_spawn(thread2);
+    uthread_spawn(thread3);
+    uthread_spawn(thread4);
+    uthread_spawn(thread5);
 
     for (int i = 1; i < NUM_THREADS; i++)
     {

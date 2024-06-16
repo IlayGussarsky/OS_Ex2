@@ -4,7 +4,7 @@
  **********************************************/
 
 #include <cstdio>
-#include "uthreads.h"
+#include "../../uthreads.h"
 
 #define GRN "\e[32m"
 #define RED "\x1B[31m"
@@ -32,7 +32,8 @@ void thread()
     //uthread_sync(next_thread());
 
     //uthread_sync(next_thread());
-
+    // printf("A");
+    fflush(stdout);
     uthread_block(uthread_get_tid());
 
     for (int i = 0; i < 50; i++)
@@ -61,10 +62,10 @@ int main()
     fflush(stdout);
 
 	int q[2] = {10, 20};
-	uthread_init(q, 2);
-    uthread_spawn(thread, 0);
-    uthread_spawn(thread, 0);
-    uthread_spawn(thread, 1);
+	uthread_init(100);
+    uthread_spawn(thread);
+    uthread_spawn(thread);
+    uthread_spawn(thread);
 
     for (int i = 0; i < NUM_THREADS; i++)
     {
@@ -74,6 +75,7 @@ int main()
     while (!all_done())
     {
         uthread_resume(1);
+        // printf("!");
     }
 
     printf(GRN "SUCCESS\n" RESET);
