@@ -4,6 +4,6 @@ project(OS_Ex2)
 set(CMAKE_CXX_STANDARD 17)
 
 add_executable(Ex2
-        Tests/test0_sanity.cpp
+        uthreads.cpp
         uthreads.h
-        uthreads.cpp)
+        NewTests/DriveTests/test1.in.cpp)
