@@ -6,5 +6,5 @@ set(CMAKE_CXX_STANDARD 11)
 add_executable(Ex2
         uthreads.h
         uthreads.cpp
-        NewTests/DriveTests/test4.in.cpp
+        NewTests/DriveTests/test1.in.cpp
 )
