@@ -41,6 +41,8 @@ Some disadvantages of using different processes for different tabs are:
  -  Communication between processes - kernel-level threads can communicate with each-other much more naturally and efficiently than
         subprocesses of the same process.
 Q4:
+The interrupts involved in this operation are only the keyboard stroke interrupts sent to the CPU.
+The signal involved in this operation is SIGTERM (signal-terminate) sent from the command prompt to the application.
 
 Q5:
 The difference between 'real' and 'virtual' time (in the context of timers) is that virtual time counts only the time spent in the timer's process
