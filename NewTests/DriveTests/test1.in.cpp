@@ -16,7 +16,7 @@
 #include <deque>
 #include <list>
 #include <assert.h>
-#include "../uthreads.h"
+#include "../../uthreads.h"
 //#include "libuthread.a"
 #include <iostream>
 
@@ -81,7 +81,7 @@ void g (void)
 int main(void)
 {
 	int q[2] = {10, 20};
-    if (uthread_init(q, 2) == -1)
+    if (uthread_init(1000) == -1)
     {
         return 0;
     }
@@ -99,8 +99,8 @@ int main(void)
             if (i == 3 && j == 0)
             {
                 j++;
-                cout << "          spawn f at (1) " << uthread_spawn(f, 0) << endl;
-                cout << "          spawn g at (2) " << uthread_spawn(g, 1) << endl;
+                cout << "          spawn f at (1) " << uthread_spawn(f) << endl;
+                cout << "          spawn g at (2) " << uthread_spawn(g) << endl;
             }
 
             if (i == 6 && j == 1)
@@ -122,17 +122,17 @@ int main(void)
             if (i == 13 && j == 3)
             {
                 j++;
-                cout << "          spawn f at (1) " << uthread_spawn(f, 0) << endl;
+                cout << "          spawn f at (1) " << uthread_spawn(f) << endl;
                 cout << "          f suspend by main" << endl;
                 uthread_block(1);
             }
             if (i == 17 && j == 4)
             {
                 j++;
-                cout << "          spawn g at (2) " << uthread_spawn(g, 1) << endl;
+                cout << "          spawn g at (2) " << uthread_spawn(g) << endl;
                 cout << "          f terminate by main" << endl;
                 uthread_terminate(1);
-                cout << "          spawn f at (1) " << uthread_spawn(f, 0) << endl;
+                cout << "          spawn f at (1) " << uthread_spawn(f) << endl;
                 cout << "          f suspend by main" << endl;
                 uthread_block(1);
             }
