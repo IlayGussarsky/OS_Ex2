@@ -486,7 +486,6 @@ int uthread_resume(int tid)
     {
         scheduledController(SIGVTALRM);
     }
-    startTimer();
     return 0;
 }
 
