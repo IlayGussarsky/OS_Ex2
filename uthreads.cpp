@@ -103,6 +103,8 @@ void scheduledController(int sig)
         exit(1);
     }
 
+//    std::cout << "Scheduled Controller\n";
+
     totalQuantums++;
     std::set<int> wakingUpThreads;
 
@@ -228,6 +230,12 @@ int uthread_init(int quantum_usecs)
  */
 int uthread_spawn(thread_entry_point entry_point)
 {
+//    if (sigprocmask(SIG_BLOCK, &vtalarm_block_set, nullptr) == -1)
+//    {
+//      std::cerr << "system error: [uthread_resume] sigprocmask failed.\n";
+//      freeMemory();
+//      exit(1);
+//    }
     int curID = 0;
     for (; threads[curID]; curID++)
     {
@@ -241,7 +249,28 @@ int uthread_spawn(thread_entry_point entry_point)
     threads[curID] = newThread;
     readyQueue.push(curID);
     totalQuantums++;
-    startTimer();
+//    sigset_t pending_signals;
+//  // Retrieve the set of pending signals
+//    if (sigpending(&pending_signals) == -1)
+//      {
+//        std::cerr << "system error: [uthread_resume] sigpending failed.\n";
+//        freeMemory();
+//        exit(1);
+//      }
+//
+//    if (sigprocmask(SIG_UNBLOCK, &vtalarm_block_set, NULL) == -1)
+//      {
+//        std::cerr << "system error: [uthread_resume] sigprocmask failed.\n";
+//        freeMemory();
+//        exit(1);
+//      }
+//
+//
+//    // Check if the specific signal is in the pending set
+//    if (sigismember(&pending_signals, SIGVTALRM) == 1)
+//    {
+//      scheduledController(SIGVTALRM);
+//    }
     return curID;
 }
 
@@ -366,6 +395,12 @@ int uthread_block(int tid)
     {
         threads[tid]->state = State::BLOCKED;
         setRunningThread();
+        if (sigprocmask(SIG_UNBLOCK, &vtalarm_block_set, NULL) == -1)
+          {
+            std::cerr << "system error: [uthread_block] sigprocmask failed.\n";
+            freeMemory();
+            exit(1);
+          }
         return 0;
     }
     // Now we may assume that we are removing a thread that is ready or sleeping.
@@ -436,6 +471,8 @@ int uthread_resume(int tid)
         exit(1);
     }
 
+
+
     if (sigprocmask(SIG_UNBLOCK, &vtalarm_block_set, NULL) == -1)
     {
         std::cerr << "system error: [uthread_resume] sigprocmask failed.\n";
@@ -449,6 +486,7 @@ int uthread_resume(int tid)
     {
         scheduledController(SIGVTALRM);
     }
+    startTimer();
     return 0;
 }
 
@@ -584,6 +622,12 @@ void setRunningThread()
     if (!to_jump)
     {
         runningThread = nextRunningThread;
+        if (sigprocmask(SIG_UNBLOCK, &vtalarm_block_set, NULL) == -1)
+          {
+            std::cerr << "system error: [uthread_block] sigprocmask failed.\n";
+            freeMemory();
+            exit(1);
+          }
         siglongjmp(threads[nextRunningThread]->env,
                    1); // if to_jump = 0 then this is the first time the thread
         // reach this line, so we need to jump

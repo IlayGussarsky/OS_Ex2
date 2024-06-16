@@ -81,7 +81,7 @@ void g (void)
 int main(void)
 {
 	int q[2] = {10, 20};
-    if (uthread_init(1000) == -1)
+    if (uthread_init(10000) == -1)
     {
         return 0;
     }
