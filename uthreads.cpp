@@ -67,7 +67,7 @@ public:
     State state;
     // Constructor to initialize tid
     Thread(int id, thread_entry_point entry_point)
-        : tid(id), quantumsAlive(1), state(State::READY)
+        : tid(id), quantumsAlive(0), state(State::READY)
     {
         char* stack = new char[STACK_SIZE];
 
@@ -105,7 +105,7 @@ void scheduledController(int sig)
 
 //    std::cout << "Scheduled Controller\n";
 
-    totalQuantums++;
+//    totalQuantums++;
     std::set<int> wakingUpThreads;
 
     for (const int& thread : sleepingSet)
@@ -133,14 +133,9 @@ void scheduledController(int sig)
     {
         readyQueue.push(runningThread);
     }
-    if (sigprocmask(SIG_UNBLOCK, &vtalarm_block_set, NULL) == -1)
-    {
-        std::cerr << "system error: [uthread_terminate] sigprocmask failed.\n";
-        freeMemory();
-        exit(1);
-    }
+
     setRunningThread();
-    threads[runningThread]->quantumsAlive++;
+//    threads[runningThread]->quantumsAlive++;
 }
 
 void startTimer()
@@ -248,7 +243,7 @@ int uthread_spawn(thread_entry_point entry_point)
     Thread* newThread = new Thread(curID, entry_point);
     threads[curID] = newThread;
     readyQueue.push(curID);
-    totalQuantums++;
+//    totalQuantums++;
 //    sigset_t pending_signals;
 //  // Retrieve the set of pending signals
 //    if (sigpending(&pending_signals) == -1)
@@ -394,13 +389,15 @@ int uthread_block(int tid)
     if (uthread_get_tid() == tid)
     {
         threads[tid]->state = State::BLOCKED;
-        setRunningThread();
+
+
         if (sigprocmask(SIG_UNBLOCK, &vtalarm_block_set, NULL) == -1)
           {
             std::cerr << "system error: [uthread_block] sigprocmask failed.\n";
             freeMemory();
             exit(1);
           }
+        scheduledController(0);
         return 0;
     }
     // Now we may assume that we are removing a thread that is ready or sleeping.
@@ -614,6 +611,7 @@ void setRunningThread()
     const int nextRunningThread = readyQueue.front();
     readyQueue.pop();
     threads[nextRunningThread]->state = State::RUNNING;
+
     int to_jump =
         sigsetjmp(threads[runningThread]->env,
                   1); // saving the env for the current thread if we jumped here
@@ -621,6 +619,8 @@ void setRunningThread()
     if (!to_jump)
     {
         runningThread = nextRunningThread;
+        totalQuantums++;
+        threads[runningThread]->quantumsAlive++;
         if (sigprocmask(SIG_UNBLOCK, &vtalarm_block_set, NULL) == -1)
           {
             std::cerr << "system error: [uthread_block] sigprocmask failed.\n";
@@ -630,6 +630,12 @@ void setRunningThread()
         siglongjmp(threads[nextRunningThread]->env,
                    1); // if to_jump = 0 then this is the first time the thread
         // reach this line, so we need to jump
+    }
+  if (sigprocmask(SIG_UNBLOCK, &vtalarm_block_set, NULL) == -1)
+    {
+      std::cerr << "system error: [uthread_terminate] sigprocmask failed.\n";
+      freeMemory();
+      exit(1);
     }
 }
 
