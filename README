@@ -22,8 +22,6 @@ a. sigsetjmp - this func receive an enviroment variable and saves the current st
 b. sigsetjmp has an argumnet 'savemask'. if savemask != 0 the env is saved with its signal mask. o.w the mask is not saved.
    siglongjmp only restores the mask if it was saves (in the last sisetjmp).
 
-
-
 Q2:
 An example use case for user level thread is in a web server that receives multiple requests from an unknown number of entities
     and should be able to deal with all of them 'simultaneously'. Assigning the user-handler function to a new thread every time
@@ -46,6 +44,7 @@ Some disadvantages of using different processes for different tabs are:
         time spent on chrome now splits over several processes, increasing time spent on context switching etc.
  -  Communication between processes - kernel-level threads can communicate with each-other much more naturally and efficiently than
         subprocesses of the same process.
+
 Q4:
 The interrupts involved in this operation are only the keyboard stroke interrupts sent to the CPU.
 The signal involved in this operation is SIGTERM (signal-terminate) sent from the command prompt to the application.
