@@ -25,6 +25,12 @@ b. sigsetjmp has an argumnet 'savemask'. if savemask != 0 the env is saved with 
 
 
 Q2:
+An example use case for user level thread is in a web server that receives multiple requests from an unknown number of entities
+    and should be able to deal with all of them 'simultaneously'. Assigning the user-handler function to a new thread every time
+    a request is sent is a solution to this kind of need.
+    User level threads, fit this use case as there is probably no need for a lot of isolation between threads executing server code
+    (so processed are not needed) and the server can manage the thread's timing itself (using functions like block and such)
+    and doesn't have to rely on the OS's timing rules.
 
 Q3:
 Some advantages of using different processes for different tabs are:
